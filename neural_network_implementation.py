@@ -52,6 +52,7 @@ class NeuralNet():
         z_list.append(z)
         return activations, z_list
 
+
     def error_util(self, y, f):
         # print(y,f)
         one_minus_v = np.vectorize(self.one_minus)

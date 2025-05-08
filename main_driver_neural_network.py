@@ -1,6 +1,8 @@
 import csv
 from neural_network_implementation import NeuralNet
 import matplotlib.pyplot as plt
+import random
+from sklearn.datasets import load_digits
 
 def read_data(file_path, delimiter, label_location_beginning=False):
     file = open(file_path, 'r')
@@ -17,6 +19,9 @@ def read_data(file_path, delimiter, label_location_beginning=False):
     file.close()
     return data
 
+def shuffle_data(data):
+    random.shuffle(data)
+    return data
 
 def prepare_data(data):
     instances = [x[:-1] for x in data]
@@ -67,7 +72,7 @@ def normalize_data(instances):
 
     return instances
 
-def get_final_data(data_path, delimeter, total_classes, label_location_beginning=False, num_folds=5):
+def get_final_data(data_path, delimeter, total_classes, label_location_beginning=False, num_folds=10):
     data = read_data(data_path, delimeter, label_location_beginning)
     stratified_data = get_stratified_folds(data, num_folds)
     final_stratified_data = []
@@ -87,7 +92,7 @@ def get_final_data(data_path, delimeter, total_classes, label_location_beginning
 
     return final_stratified_data
 
-def get_final_data_from_rows(data_rows, total_classes, num_folds=5):
+def get_final_data_from_rows(data_rows, total_classes, num_folds=10):
     stratified_data = get_stratified_folds(data_rows, num_folds)
     final_stratified_data = []
 
@@ -205,7 +210,7 @@ def generate_learning_curve(layers, reg_lambda, alpha, full_data, output_classes
     if max_train_size is None:
         max_train_size = len(train_x)
 
-    step_sizes = list(range(step_size, max_train_size + 1, step_size))  # Increase in steps of 10
+    step_sizes = list(range(step_size, max_train_size + 1, step_size))
     results = [("TrainingSize", "CostJ")]
 
     for size in step_sizes:
@@ -227,7 +232,7 @@ def generate_learning_curve(layers, reg_lambda, alpha, full_data, output_classes
         print(f"Training size: {size}, Cost J on test set: {total_cost:.5f}")
 
     # Plotting the learning curve from the results list
-    training_sizes = [row[0] for row in results[1:]]  # Skip header
+    training_sizes = [row[0] for row in results[1:]]
     costs = [row[1] for row in results[1:]]
 
     plt.figure(figsize=(8, 6))
@@ -240,9 +245,71 @@ def generate_learning_curve(layers, reg_lambda, alpha, full_data, output_classes
     plt.show()
 
 
+def preprocess_digits():
+    # Loading the digits dataset
+    digits = load_digits()
+    X = digits.data  # Shape: (1797, 64)
+    y = digits.target.reshape(-1, 1)  # Shape: (1797, 1)
+
+    data = [list(X[i]) + [int(y[i])] for i in range(len(X))]
+
+    data = shuffle_data(data)
+
+    return data
+
+def digits_nn():
+    alpha = 0.1
+    data_rows = preprocess_digits()
+
+    data = get_final_data_from_rows(data_rows, total_classes=10, num_folds=10)
+
+    input_dim = 64  # 64 pixels per image
+    output_dim = 10  # 10 classes
+    print('Training neural network for digits data')
+
+    layers1 = [input_dim, 32, 16, output_dim]
+    reg_lambda1 = 0.1
+    metrics1 = test_neural_net(layers1, reg_lambda1, alpha, data, output_dim)
+    print(metrics1)
+
+    layers2 = [input_dim, 24, 12, output_dim]
+    reg_lambda2 = 0.25
+    metrics2 = test_neural_net(layers2, reg_lambda2, alpha, data, output_dim)
+    print(metrics2)
+
+    layers3 = [input_dim, 16, output_dim]
+    reg_lambda3 = 0.05
+    metrics3 = test_neural_net(layers3, reg_lambda3, alpha, data, output_dim)
+    print(metrics3)
+
+    layers4 = [input_dim, 64, 32, 16, output_dim]
+    reg_lambda4 = 0.01
+    metrics4 = test_neural_net(layers4, reg_lambda4, alpha, data, output_dim)
+    print(metrics4)
+
+    layers5 = [input_dim, 48, 24, output_dim]
+    reg_lambda5 = 0.5
+    metrics5 = test_neural_net(layers5, reg_lambda5, alpha, data, output_dim)
+    print(metrics5)
+
+    layers6 = [input_dim, 56, 28, output_dim]
+    reg_lambda6 = 0.75
+    metrics6 = test_neural_net(layers6, reg_lambda6, alpha, data, output_dim)
+    print(metrics6)
+
+    metrics = [metrics1, metrics2, metrics3, metrics4, metrics5, metrics6]
+    headers = ["Accuracy", "F1-Score"]
+
+    # Save metrics to CSV
+    with open("digits-metrics.csv", 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        writer.writerows(metrics)
+
+
 def parkinsons():
     alpha = 0.1  # Learning rate alpha
-    data = get_final_data("parkinsons.csv", ",", 2, False, num_folds=5)  # 22 features, 2 classes
+    data = get_final_data("parkinsons.csv", ",", 2, False, num_folds=10)  # 22 features, 2 classes
 
     print('Training neural network for parkinsons data')
     layers1 = [22, 16, 8, 2]
@@ -295,7 +362,6 @@ def preprocess_rice_data(file_path):
     for row in raw_data:
         new_row = []
 
-        # Convert all 7 numerical features to float
         for i in range(7):
             new_row.append(float(row[i]))
 
@@ -311,7 +377,7 @@ def preprocess_rice_data(file_path):
 def rice():
     alpha = 0.2
     raw_data = preprocess_rice_data("rice.csv")
-    data = get_final_data_from_rows(raw_data, 2, num_folds=5)  # 7 features, 2 classes
+    data = get_final_data_from_rows(raw_data, 2, num_folds=10)  # 7 features, 2 classes
 
     print('Training neural network for rice data')
     layers1 = [7, 18, 12, 2]
@@ -396,11 +462,12 @@ def preprocess_credit_data(file_path):
 def credit_approval():
     alpha = 0.05  # Learning rate alpha
     raw_data = preprocess_credit_data("credit_approval.csv")
-    data = get_final_data_from_rows(raw_data, 2, num_folds=5)
+    data = get_final_data_from_rows(raw_data, 2, num_folds=10)
 
     input_dim = len(raw_data[0]) - 1
     print('input dimension is: ' + str(input_dim))
 
+    print('Training neural network for credit approval data')
     layers1 = [46, 16, 8, 2]
     reg_lambda1 = 0.1
     metrics1 = test_neural_net(layers1, reg_lambda1, alpha, data, 2)
@@ -441,29 +508,38 @@ def credit_approval():
 
 if __name__ == "__main__":
 
-    # Training the neural network for parkinsons dataset
-    #parkinsons()
-    # best_layers_parkinsons = [22, 12, 6, 2]
-    # best_lambda_parkinsons = 0.25
-    # alpha_parkinsons = 0.1
-    # parkinsons_data = get_final_data("parkinsons.csv", ",", 2, False, num_folds=5)
-    # generate_learning_curve(best_layers_parkinsons, best_lambda_parkinsons, alpha_parkinsons, parkinsons_data, 2, 'parkinsons-dataset', 10)
+    # Training the neural network for digits dataset
+    digits_nn()
+    best_layers_digits = [64, 56, 28, 10]
+    best_lambda_digits = 0.75
+    alpha_digits = 0.1
+    data_rows = preprocess_digits()
+    digits_data = get_final_data_from_rows(data_rows, total_classes=10, num_folds=10)
+    generate_learning_curve(best_layers_digits, best_lambda_digits, alpha_digits, digits_data, 10, 'digits-dataset', 100)
+
+    # Training the neural network for parkinson's dataset
+    parkinsons()
+    best_layers_parkinsons = [22, 10, 2]
+    best_lambda_parkinsons = 0.05
+    alpha_parkinsons = 0.1
+    parkinsons_data = get_final_data("parkinsons.csv", ",", 2, False, num_folds=10)
+    generate_learning_curve(best_layers_parkinsons, best_lambda_parkinsons, alpha_parkinsons, parkinsons_data, 2, 'parkinsons-dataset', 10)
 
 
     # Training the neural network for rice dataset
     rice()
-    # best_layers_rice = [7, 18, 12, 2]
-    # best_lambda_rice = 0.1
-    # alpha_rice = 0.2
-    # raw_data = preprocess_rice_data("rice.csv")
-    # rice_data = get_final_data_from_rows(raw_data, 2, num_folds=5)
-    # generate_learning_curve(best_layers_rice, best_lambda_rice, alpha_rice, rice_data, 2, 'rice-dataset', 200)
+    best_layers_rice = [7, 18, 12, 2]
+    best_lambda_rice = 0.1
+    alpha_rice = 0.2
+    raw_data = preprocess_rice_data("rice.csv")
+    rice_data = get_final_data_from_rows(raw_data, 2, num_folds=10)
+    generate_learning_curve(best_layers_rice, best_lambda_rice, alpha_rice, rice_data, 2, 'rice-dataset', 200)
 
     # Training the neural network for credit approval dataset
-    #credit_approval()
-    # best_layers_credit = [46, 16, 8, 2]
-    # best_lambda_credit = 0.1
-    # alpha_credit = 0.05
-    # raw_data = preprocess_credit_data("credit_approval.csv")
-    # credit_data = get_final_data_from_rows(raw_data, 2, num_folds=5)
-    # generate_learning_curve(best_layers_credit, best_lambda_credit, alpha_credit, credit_data, 2, 'credit-approval-dataset', 20)
+    credit_approval()
+    best_layers_credit = [46, 16, 8, 2]
+    best_lambda_credit = 0.1
+    alpha_credit = 0.05
+    raw_data = preprocess_credit_data("credit_approval.csv")
+    credit_data = get_final_data_from_rows(raw_data, 2, num_folds=10)
+    generate_learning_curve(best_layers_credit, best_lambda_credit, alpha_credit, credit_data, 2, 'credit-approval-dataset', 20)
