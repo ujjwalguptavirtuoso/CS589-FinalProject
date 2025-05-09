@@ -27,12 +27,12 @@ def kfold_stratified(df, dataset_name, k, ntree_values, depths):
 
         return train_df, test_df
 
-    def evaluate_model(train_df, test_df, ntree_values):
+    def evaluate_model(train_df, test_df, ntree_values, depths):
         fold_results = {n: {'accuracy': [], 'f1': []} for n in ntree_values}
 
         for i, trees in enumerate(ntree_values):
-            print(f"[{dataset_name}] Fold {i + 1}/{k} - ntree={trees}")
-            rf = rf.RandomForestClassifier(trees, depths[i])
+            print(f"[{dataset_name}] Fold {fold + 1}/{k} - ntree={trees}, depth={depths[i]}")
+            rf = RandomForestClassifier(trees, depths[i])
             rf.fit(train_df)
             preds = rf.predict_labels(test_df)
             accuracy, f1 = calculate_metrics(np.array(preds), test_df.iloc[:, -1].values)
@@ -44,9 +44,9 @@ def kfold_stratified(df, dataset_name, k, ntree_values, depths):
     results = {n: {'accuracy': [], 'f1': []} for n in ntree_values}
     classes, splits, fold_sizes = stratify_data(df)
 
-    for i in range(k):
-        train_df, test_df = get_fold_data(classes, splits, fold_sizes, i)
-        fold_results = evaluate_model(train_df, test_df, ntree_values)
+    for fold in range(k):
+        train_df, test_df = get_fold_data(classes, splits, fold_sizes, fold)
+        fold_results = evaluate_model(train_df, test_df, ntree_values, depths)
         for trees in ntree_values:
             results[trees]['accuracy'].extend(fold_results[trees]['accuracy'])
             results[trees]['f1'].extend(fold_results[trees]['f1'])
@@ -105,6 +105,6 @@ if __name__ == '__main__':
         metrics = kfold_stratified(df, dataset_name, 10, ntree_values, depths)
 
         for trees, metrics_val in metrics.items():
-            print(f"Trees={trees}: Acc={metrics_val['accuracy']:.3f}, F1={metrics_val['f1']:.3f}")
+            print(f"Trees={trees}, Acc={metrics_val['accuracy']:.3f}, F1={metrics_val['f1']:.3f}")
 
         plot_metrics(metrics, ntree_values, dataset_name)
